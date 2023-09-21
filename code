@@ -1,0 +1,79 @@
+import numpy as np # linear algebra
+import pandas as pd # data processing, CSV file I/O (e.g. pd.read_csv)
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+df = pd.read_csv('stock_data.csv',delimiter=',', encoding='ISO-8859-1')
+df.isnull().sum()
+df.head()
+df['Sentiment'].value_counts()
+
+data_cleaned = pd.DataFrame()
+data_cleaned['sentiment'] = df['Sentiment'].values
+data_cleaned['text'] = df['Text'].values
+data_cleaned
+
+import nltk
+from nltk.corpus import stopwords
+from nltk.tokenize import word_tokenize
+from nltk.stem import PorterStemmer
+import string
+from string import punctuation
+from nltk.stem import LancasterStemmer
+from nltk.stem.snowball import SnowballStemmer
+from nltk.stem.wordnet import WordNetLemmatizer
+import re
+
+nltk.download('punkt')
+nltk.download('stopwords')
+
+stuff_to_be_removed = list(stopwords.words('english'))+list(punctuation)
+stemmer = LancasterStemmer()
+corpus = df['Text'].tolist()
+print(len(corpus))
+print(corpus[0])
+
+final_corpus = []
+final_corpus_joined = []
+for i in df.index:
+    text = re.sub('[^a-zA-Z]', ' ', df['Text'][i])
+    text = text.lower()
+    text=re.sub("&lt;/?.*?&gt;"," &lt;&gt; ",text)
+    text=re.sub("(\\d|\\W)+"," ",text)
+    text = text.split()
+    lem = SnowballStemmer("english")
+    text = [lem.stem(word) for word in text if not word in stuff_to_be_removed]
+    text1 = " ".join(text)
+    final_corpus.append(text)
+    final_corpus_joined.append(text1)
+
+data_cleaned["text"] = final_corpus_joined
+data_cleaned
+
+X = data_cleaned['text']
+y = data_cleaned['sentiment']
+
+from sklearn.feature_extraction.text import TfidfVectorizer
+tfid = TfidfVectorizer()
+Xt = tfid.fit_transform(X)
+
+from sklearn.model_selection import train_test_split
+X_train, X_test, y_train, y_test = train_test_split(Xt, y, test_size=0.2, random_state= 42)
+
+from sklearn.svm import SVC 
+
+svm_classifier = SVC(kernel='linear', random_state=42)  # Use a linear kernel
+svm_classifier.fit(X_train, y_train)
+
+y_pred = svm_classifier.predict(X_test)
+
+print('Classification Report:\n', classification_report(y_test, y_pred))
+cf_matrix = confusion_matrix(y_test, y_pred)
+print(cf_matrix)
+
+t1 = ConfusionMatrixDisplay(cf_matrix)
+t1.plot()
+
+tn, fp, fn, tp = cf_matrix.ravel()
+accuracy = (tp + tn) / (tp + tn + fp + fn)
+print("Accuracy:", accuracy)
